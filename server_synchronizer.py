@@ -51,7 +51,7 @@ def create(file, local_file_path, local_folder, size_in_chunks, mod_map):
     if not os.path.exists(local_folder):
         os.makedirs(local_folder)
     threadLock.release()
-    if mod_map:
+    if mod_map is not None:
         fd = open(local_file_path, 'wb')
 
         for i in range(0, size_in_chunks):
