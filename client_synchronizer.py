@@ -20,7 +20,10 @@ class ClientSynchronizer:
 
         self.meta_data = {}
         for file in folder:
-            self.meta_data[file] = create_chunk_hash_map(file)
+            if not os.path.isdir(file):
+                self.meta_data[file] = create_chunk_hash_map(file)
+            else:
+                self.meta_data[file] = None
 
     def find_changes(self, files):
 
@@ -36,15 +39,20 @@ class ClientSynchronizer:
 
         for file in files:  # check if any file was created
             if file not in self.meta_data.keys():
-                modifications.append(('create', get_size_in_chunks(file), file, self.get_modifications(file)))
-                created.append(file)
-                self.meta_data[file] = create_chunk_hash_map(file)
+                if not os.path.isdir(file):
+                    modifications.append(('create', get_size_in_chunks(file), file, self.get_modifications(file)))
+                    created.append(file)
+                    self.meta_data[file] = create_chunk_hash_map(file)
+                else:
+                    modifications.append(('create', 0, file, None))
+                    self.meta_data[file] = {}
 
         for file in files:  # check if any file was updated
             if file in self.meta_data.keys():
-                if create_chunk_hash_map(file) != self.meta_data[file]:
-                    modifications.append(('update', get_size_in_chunks(file), file, self.get_modifications(file)))
-                    updated.append(file)
+                if not os.path.isdir(file):
+                    if create_chunk_hash_map(file) != self.meta_data[file]:
+                        modifications.append(('update', get_size_in_chunks(file), file, self.get_modifications(file)))
+                        updated.append(file)
 
         for f in deleted:
             del self.meta_data[f]

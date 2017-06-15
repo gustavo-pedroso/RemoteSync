@@ -36,6 +36,12 @@ class ClientListener:
                     temp.append((file_path, change_time))
                     content.append(file_path)
 
+                for name in dirs:
+                    folder_path = os.path.join(root, name)
+                    change_time = os.stat(folder_path).st_mtime_ns
+                    temp.append((folder_path, change_time))
+                    content.append(folder_path)
+
             if folder != temp:
                 folder = temp
                 f = open(self.state_record_file, 'wb')

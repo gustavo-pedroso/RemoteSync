@@ -8,74 +8,95 @@ import socket
 threadLock = threading.Lock()
 
 
-class ServerSinchronizer:
+class ServerSynchronizer:
 
     def __init__(self, port):
         self.port = port
-        self.user_home = os.getcwd()+'/USER'
+        self.user_home = os.getcwd()+'/USER_AT_'
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind((socket.gethostname(), self.port))
 
     def get_connections(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((socket.gethostname(), self.port))
-        s.listen()
+        self.sock.listen()
         while True:
-            cs, ca = s.accept()
-            _thread.start_new_thread(self.sync_handler, (cs, ))
+            cs, ca = self.sock.accept()
+            user_folder = self.user_home+str(ca[0])
+            _thread.start_new_thread(sync_handler, (cs, user_folder,))
 
-    def sync_handler(self, cs):
-        response = b''.join(recvall(cs))
-        cs.close()
-        payload = util.deserialize(response)
 
-        mode = payload[0]
-        size_in_chunks = payload[1]
-        file = payload[2]
-        mod_map = payload[3]
+def sync_handler(cs, user_folder):
+    response = b''.join(recvall(cs))
+    cs.close()
+    payload = util.deserialize(response)
 
-        local_folder, local_file = util.split_path(self.user_home, file)
-        local_file_path = local_folder + '/' + local_file
+    mode = payload[0]
+    size_in_chunks = payload[1]
+    file = payload[2]
+    mod_map = payload[3]
 
-        if mode == 'create':
-            print('synchronizing ', file, '...')
-            threadLock.acquire()
-            if not os.path.exists(local_folder):
-                os.makedirs(local_folder)
-            threadLock.release()
-            fd = open(local_file_path, 'wb')
+    local_folder, local_file = util.split_path(user_folder, file)
+    local_file_path = local_folder + '/' + local_file
 
-            for i in range(0, size_in_chunks):
-                if i in mod_map:
-                    fd.write(mod_map[i])
+    if mode == 'create':
+        create(file, local_file_path, local_folder, size_in_chunks, mod_map)
+    elif mode == 'delete':
+        delete(file, local_file_path)
+    elif mode == 'update':
+        update(file, local_file_path, local_folder, local_file, size_in_chunks, mod_map)
 
-            fd.close()
-            return
 
-        if mode == 'delete':
-            if const.delete_flag:
-                print('deleting ', file, '...')
+def create(file, local_file_path, local_folder, size_in_chunks, mod_map):
+    print('synchronizing ', file, '...')
+    threadLock.acquire()
+    if not os.path.exists(local_folder):
+        os.makedirs(local_folder)
+    threadLock.release()
+    if mod_map:
+        fd = open(local_file_path, 'wb')
+
+        for i in range(0, size_in_chunks):
+            if i in mod_map:
+                fd.write(mod_map[i])
+
+        fd.close()
+    else:
+        os.mkdir(local_file_path)
+    return
+
+
+def delete(file, local_file_path):
+        if const.delete_flag:
+            print('deleting ', file, '...')
+            if not os.path.isdir(local_file_path):
                 try:
                     os.remove(local_file_path)
                 except IOError:
                     pass
-            return
+            else:
+                try:
+                    os.rmdir(local_file_path)
+                except IOError:
+                    pass
+        return
 
-        if mode == 'update':
-            print('synchronizing ', file, '...')
-            fd = open(local_file_path, 'rb')
-            fd1 = open(local_folder + '/temp_' + local_file, 'wb')
 
-            for i in range(0, size_in_chunks):
-                chunk = fd.read(const.chunk_size)
-                if i in mod_map:
-                    fd1.write(mod_map[i])
-                else:
-                    fd1.write(chunk)
+def update(file, local_file_path, local_folder, local_file, size_in_chunks, mod_map):
+    print('synchronizing ', file, '...')
+    fd = open(local_file_path, 'rb')
+    fd1 = open(local_folder + '/temp_' + local_file, 'wb')
 
-            os.remove(local_file_path)
-            os.rename(local_folder + '/temp_' + local_file, local_file_path)
-            fd.close()
-            fd1.close()
-            return
+    for i in range(0, size_in_chunks):
+        chunk = fd.read(const.chunk_size)
+        if i in mod_map:
+            fd1.write(mod_map[i])
+        else:
+            fd1.write(chunk)
+
+    os.remove(local_file_path)
+    os.rename(local_folder + '/temp_' + local_file, local_file_path)
+    fd.close()
+    fd1.close()
+    return
 
 
 def recvall(sock, buffer_size=const.msg_len):
@@ -83,9 +104,3 @@ def recvall(sock, buffer_size=const.msg_len):
     while buf:
         yield buf
         buf = sock.recv(buffer_size)
-
-
-
-
-
-

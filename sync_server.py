@@ -1,4 +1,4 @@
-from server_synchronizer import ServerSinchronizer
+from server_synchronizer import ServerSynchronizer
 import sys
 
 if len(sys.argv) != 2:
@@ -6,5 +6,5 @@ if len(sys.argv) != 2:
     exit(0)
 
 port = int(sys.argv[1])
-ss = ServerSinchronizer(port)
+ss = ServerSynchronizer(port)
 ss.get_connections()

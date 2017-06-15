@@ -8,7 +8,7 @@ rootDir = sys.argv[1]
 server_address = sys.argv[2]
 server_port = int(sys.argv[3])
 
-print('sinchronizing:', rootDir, 'with server:', server_address, 'in port:', server_port)
+print('synchronizing:', rootDir, 'with server:', server_address, 'in port:', server_port)
 
 cl = ClientListener(rootDir, server_address, server_port)
 cl.listen()
