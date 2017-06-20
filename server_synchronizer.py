@@ -4,6 +4,7 @@ import _thread
 import os
 import threading
 import socket
+import shutil
 
 threadLock = threading.Lock()
 
@@ -14,7 +15,7 @@ class ServerSynchronizer:
         self.port = port
         self.user_home = os.getcwd()+'/USER_AT_'
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind((socket.gethostname(), self.port))
+        self.sock.bind(('', self.port))
 
     def get_connections(self):
         self.sock.listen()
@@ -60,23 +61,21 @@ def create(file, local_file_path, local_folder, size_in_chunks, mod_map):
 
         fd.close()
     else:
-        os.mkdir(local_file_path)
+        threadLock.acquire()
+        if not os.path.exists(local_file_path):
+            os.mkdir(local_file_path)
+        threadLock.release()
     return
 
 
 def delete(file, local_file_path):
         if const.delete_flag:
             print('deleting ', file, '...')
-            if not os.path.isdir(local_file_path):
-                try:
+            if os.path.exists(local_file_path):
+                if not os.path.isdir(local_file_path):
                     os.remove(local_file_path)
-                except IOError:
-                    pass
-            else:
-                try:
-                    os.rmdir(local_file_path)
-                except IOError:
-                    pass
+                else:
+                    shutil.rmtree(local_file_path, True)
         return
 
 
